@@ -15,8 +15,9 @@ namespace MassTransit
     using System;
     using System.Runtime.Serialization;
 
-
+#if !NETCORE
     [Serializable]
+#endif
     public class PayloadFactoryException :
         PayloadException
     {
@@ -34,9 +35,11 @@ namespace MassTransit
         {
         }
 
+#if !NETCORE
         protected PayloadFactoryException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
         }
+#endif
     }
 }

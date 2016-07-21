@@ -14,7 +14,7 @@ namespace MassTransit.Util
 {
     using System;
     using System.Diagnostics;
-
+    using System.Reflection;
 
     [Serializable]
     public class BusHostInfo :
@@ -26,16 +26,21 @@ namespace MassTransit.Util
 
         public BusHostInfo(bool initialize)
         {
-            MachineName = Environment.MachineName;
-
-            MassTransitVersion = FileVersionInfo.GetVersionInfo(typeof(IBus).Assembly.Location).FileVersion;
+#if NETCORE
+            FrameworkVersion = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+            OperatingSystemVersion = System.Runtime.InteropServices.RuntimeInformation.OSDescription;            
+            var entryAssembly = System.Reflection.Assembly.GetEntryAssembly();
+#else
             FrameworkVersion = Environment.Version.ToString();
             OperatingSystemVersion = Environment.OSVersion.ToString();
+            var entryAssembly = System.Reflection.Assembly.GetEntryAssembly() ?? System.Reflection.Assembly.GetCallingAssembly();
+#endif
             var currentProcess = Process.GetCurrentProcess();
+            MachineName = Environment.MachineName;
+            MassTransitVersion = FileVersionInfo.GetVersionInfo(typeof(IBus).GetTypeInfo().Assembly.Location).FileVersion;
             ProcessId = currentProcess.Id;
             ProcessName = currentProcess.ProcessName;
-
-            var entryAssembly = System.Reflection.Assembly.GetEntryAssembly() ?? System.Reflection.Assembly.GetCallingAssembly();
+            
             var assemblyName = entryAssembly.GetName();
             Assembly = assemblyName.Name;
             AssemblyVersion = FileVersionInfo.GetVersionInfo(entryAssembly.Location).FileVersion;

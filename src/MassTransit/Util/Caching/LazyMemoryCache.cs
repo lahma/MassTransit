@@ -12,10 +12,16 @@
 // specific language governing permissions and limitations under the License.
 namespace MassTransit.Util.Caching
 {
-    using System;
-    using System.Runtime.Caching;
+    using System;    
     using System.Threading;
     using System.Threading.Tasks;
+#if NETCORE
+    using Microsoft.Extensions.Caching.Memory;
+    using CacheItemPolicy = Microsoft.Extensions.Caching.Memory.MemoryCacheEntryOptions;
+    using CacheEntryRemovedReason = Microsoft.Extensions.Caching.Memory.EvictionReason;
+#else
+    using System.Runtime.Caching;
+#endif
 
 
     public class LazyMemoryCache<TKey, TValue> :
@@ -56,7 +62,11 @@ namespace MassTransit.Util.Caching
         public delegate Task ValueRemoved(string key, TValue value, string reason);
 
 
+#if NETCORE
+        readonly IMemoryCache _cache;
+#else
         readonly MemoryCache _cache;
+#endif
         readonly KeyFormatter _keyFormatter;
         readonly PolicyProvider _policyProvider;
 
@@ -72,7 +82,11 @@ namespace MassTransit.Util.Caching
             _keyFormatter = keyFormatter ?? DefaultKeyFormatter;
             _valueRemoved = valueRemoved ?? DefaultValueRemoved;
 
+#if NETCORE
+            _cache = new MemoryCache(new MemoryCacheOptions());
+#else
             _cache = new MemoryCache(name);
+#endif
             _scheduler = new LimitedConcurrencyLevelTaskScheduler(1);
         }
 
@@ -117,11 +131,16 @@ namespace MassTransit.Util.Caching
                 }
 
                 var cacheItemValue = new CachedValue(_valueFactory, key, () => Touch(textKey));
-                var cacheItem = new CacheItem(textKey, cacheItemValue);
                 var cacheItemPolicy = _policyProvider(new CacheExpirationSelector(key)).Policy;
-                cacheItemPolicy.RemovedCallback = OnCacheItemRemoved;
 
+#if NETCORE
+                cacheItemPolicy.RegisterPostEvictionCallback(OnCacheItemRemoved);
+                var added = _cache.Set(textKey, cacheItemValue, cacheItemPolicy) != null;
+#else                
+                var cacheItem = new CacheItem(textKey, cacheItemValue);                
+                cacheItemPolicy.RemovedCallback = OnCacheItemRemoved;
                 var added = _cache.Add(cacheItem, cacheItemPolicy);
+#endif
                 if (!added)
                 {
                     throw new InvalidOperationException($"The item was not added to the cache: {key}");
@@ -131,6 +150,16 @@ namespace MassTransit.Util.Caching
             }, CancellationToken.None, TaskCreationOptions.HideScheduler, _scheduler);
         }
 
+#if NETCORE
+        void OnCacheItemRemoved(object key, object value, EvictionReason reason, object substate)
+        {
+            var existingItem = value as CachedValue;
+            if (existingItem?.IsValueCreated ?? false)
+            {
+                CleanupCacheItem(existingItem.Value, key as string, reason);
+            }
+        }
+#else
         void OnCacheItemRemoved(CacheEntryRemovedArguments arguments)
         {
             var existingItem = arguments.CacheItem.Value as CachedValue;
@@ -139,6 +168,7 @@ namespace MassTransit.Util.Caching
                 CleanupCacheItem(existingItem.Value, arguments.CacheItem.Key, arguments.RemovedReason);
             }
         }
+#endif
 
         async void CleanupCacheItem(Task<TValue> valueTask, string textKey, CacheEntryRemovedReason reason)
         {
@@ -153,7 +183,6 @@ namespace MassTransit.Util.Caching
             if (asyncDisposable != null)
                 await asyncDisposable.DisposeAsync().ConfigureAwait(false);
         }
-
 
         class CachedValue :
             Cached<TValue>
@@ -244,7 +273,6 @@ namespace MassTransit.Util.Caching
             {
                 return new CacheExpiration(new CacheItemPolicy());
             }
-
 
             class CacheExpiration :
                 ICacheExpiration

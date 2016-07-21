@@ -31,7 +31,7 @@ namespace MassTransit.Transformation.TransformBuilders
 
         public MessageTransformBuilder(TransformResultFactory<TResult> resultFactory)
         {
-            ImplementationType = typeof(TResult).IsInterface
+            ImplementationType = typeof(TResult).GetTypeInfo().IsInterface
                 ? TypeMetadataCache.ImplementationBuilder.GetImplementationType(typeof(TResult))
                 : typeof(TResult);
 
