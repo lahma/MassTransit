@@ -15,8 +15,9 @@ namespace MassTransit.RabbitMqTransport
     using System;
     using System.Runtime.Serialization;
 
-
+#if !NETCORE
     [Serializable]
+#endif
     public class RabbitMqConnectionException :
         MassTransitException
     {
@@ -34,9 +35,11 @@ namespace MassTransit.RabbitMqTransport
         {
         }
 
+#if !NETCORE
         protected RabbitMqConnectionException(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
         }
+#endif
     }
 }
