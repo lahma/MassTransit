@@ -13,7 +13,7 @@
 namespace MassTransit.Context
 {
     using System;
-
+    using System.Reflection;
 
     public class SinglePayloadCollection :
         BasePayloadCollection

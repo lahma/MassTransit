@@ -13,8 +13,8 @@
 namespace MassTransit.Context
 {
     using System;
+    using System.Reflection;
     using System.Threading;
-
 
     public abstract class BasePipeContext
     {

@@ -14,7 +14,7 @@ namespace MassTransit.Context
 {
     using System;
     using System.Linq;
-
+    using System.Reflection;
 
     public class ArrayPayloadCollection :
         BasePayloadCollection
